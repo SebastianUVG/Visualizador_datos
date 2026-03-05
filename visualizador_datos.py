@@ -67,46 +67,65 @@ if archivo is not None:
             (df["fecha"] <= pd.to_datetime(fecha_fin))
         ]
 
+        df_extremos = df_filtrado.copy()
+
 
         # -------------------------
-        # AGRUPAR DATOS SEGÚN RANGO
+        # VALORES EXTREMOS
         # -------------------------
-        rango_dias = (df_filtrado["fecha"].max() - df_filtrado["fecha"].min()).days
 
-        # Detectar intervalo original
-        intervalo = df_filtrado["fecha"].diff().median()
-        intervalo_minutos = intervalo.total_seconds() / 60
+        # Temperatura
+        temp_max = df_extremos.loc[df_extremos["temperatura"].idxmax()]
+        temp_min = df_extremos.loc[df_extremos["temperatura"].idxmin()]
 
-        # Solo agrupar si los datos son muy densos (menos de 15 min)
-        if intervalo_minutos < 15:
-            if rango_dias <= 2:
-                df_filtrado = df_filtrado.set_index("fecha").resample("10min").mean().reset_index()
-            elif rango_dias <= 7:
-                df_filtrado = df_filtrado.set_index("fecha").resample("30min").mean().reset_index()
+        # Humedad
+        hum_max = df_extremos.loc[df_extremos["humedad"].idxmax()]
+        hum_min = df_extremos.loc[df_extremos["humedad"].idxmin()]
+        
+        # -------------------------
+        # MODO DE VISUALIZACIÓN
+        # -------------------------
+
+        modo = st.radio(
+            "Modo de visualización:",
+            ["Datos optimizados","Datos originales"],
+            horizontal=True
+        )
+        
+
+        # -------------------------
+        # AGRUPAR SOLO SI EL USUARIO LO ELIGE
+        # -------------------------
+
+        if modo == "Datos optimizados":
+
+            cantidad_puntos = len(df_filtrado)
+
+            if cantidad_puntos > 2000:
+
+                rango_dias = (df_filtrado["fecha"].max() - df_filtrado["fecha"].min()).days
+
+                if rango_dias <= 2:
+                    frecuencia = "10min"
+                elif rango_dias <= 7:
+                    frecuencia = "30min"
+                else:
+                    frecuencia = "1h"
+
+                df_filtrado = (
+                    df_filtrado
+                    .set_index("fecha")
+                    .resample(frecuencia)
+                    .mean()
+                    .reset_index()
+                )
+
+                st.caption(f"Datos agrupados cada {frecuencia}. Mostrando {len(df_filtrado)} puntos.")
             else:
-                df_filtrado = df_filtrado.set_index("fecha").resample("1h").mean().reset_index()
+                st.caption(f"Mostrando {len(df_filtrado)} puntos (no fue necesario agrupar).")
 
-        cantidad_puntos = len(df_filtrado)
-
-        # Solo agregamos si hay demasiados puntos
-        if cantidad_puntos > 2000:
-
-            rango_dias = (df_filtrado["fecha"].max() - df_filtrado["fecha"].min()).days
-
-            if rango_dias <= 2:
-                frecuencia = "10min"
-            elif rango_dias <= 7:
-                frecuencia = "30min"
-            else:
-                frecuencia = "1h"
-
-            df_filtrado = (
-                df_filtrado
-                .set_index("fecha")
-                .resample(frecuencia)
-                .mean()
-                .reset_index()
-            )
+        else:
+            st.caption(f"Mostrando {len(df_filtrado)} puntos originales.")
 
         
 
@@ -118,15 +137,17 @@ if archivo is not None:
         with col1:
             st.metric(
                 "Temperatura Promedio (°C)",
-                round(df_filtrado["temperatura"].mean(), 2)
+                round(df_extremos["temperatura"].mean(), 2)
             )
 
         with col2:
             st.metric(
                 "Humedad Promedio (%)",
-                round(df_filtrado["humedad"].mean(), 2)
+                round(df_extremos["humedad"].mean(), 2)
             )
 
+        
+        
             
 
         # -------------------------
@@ -175,7 +196,24 @@ if archivo is not None:
 
         st.plotly_chart(fig, use_container_width=True)
 
-        
+        st.subheader("Valores extremos en el rango seleccionado")
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.markdown("### 🌡 Temperatura")
+            st.write(f"🔺 Máxima: {temp_max['temperatura']:.2f} °C")
+            st.write(f"🕒 Fecha: {temp_max['fecha']}")
+            st.write(f"🔻 Mínima: {temp_min['temperatura']:.2f} °C")
+            st.write(f"🕒 Fecha: {temp_min['fecha']}")
+
+        with col2:
+            st.markdown("### 💧 Humedad Relativa")
+            st.write(f"🔺 Máxima: {hum_max['humedad']:.2f} %")
+            st.write(f"🕒 Fecha: {hum_max['fecha']}")
+            st.write(f"🔻 Mínima: {hum_min['humedad']:.2f} %")
+            st.write(f"🕒 Fecha: {hum_min['fecha']}")
+                
 
     except Exception as e:
         st.error(f"Ocurrió un error al procesar el archivo: {e}")
