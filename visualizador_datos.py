@@ -117,7 +117,7 @@ if archivo is not None:
                 x=df_filtrado["fecha"],
                 y=df_filtrado["temperatura"],
                 name="Temperatura (°C)",
-                line=dict(color="black"),
+                line=dict(color="orange"),
                 yaxis="y1"
             )
         )
