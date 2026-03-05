@@ -71,18 +71,42 @@ if archivo is not None:
         # -------------------------
         # AGRUPAR DATOS SEGÚN RANGO
         # -------------------------
-
         rango_dias = (df_filtrado["fecha"].max() - df_filtrado["fecha"].min()).days
 
-        if rango_dias <= 2:
-            # Si son pocos días, mostrar cada 10 minutos
-            df_filtrado = df_filtrado.set_index("fecha").resample("10min").mean().reset_index()
-        elif rango_dias <= 7:
-            # Hasta una semana → cada 30 minutos
-            df_filtrado = df_filtrado.set_index("fecha").resample("30min").mean().reset_index()
-        else:
-            # Más de una semana → cada hora
-            df_filtrado = df_filtrado.set_index("fecha").resample("1H").mean().reset_index()
+        # Detectar intervalo original
+        intervalo = df_filtrado["fecha"].diff().median()
+        intervalo_minutos = intervalo.total_seconds() / 60
+
+        # Solo agrupar si los datos son muy densos (menos de 15 min)
+        if intervalo_minutos < 15:
+            if rango_dias <= 2:
+                df_filtrado = df_filtrado.set_index("fecha").resample("10min").mean().reset_index()
+            elif rango_dias <= 7:
+                df_filtrado = df_filtrado.set_index("fecha").resample("30min").mean().reset_index()
+            else:
+                df_filtrado = df_filtrado.set_index("fecha").resample("1h").mean().reset_index()
+
+        cantidad_puntos = len(df_filtrado)
+
+        # Solo agregamos si hay demasiados puntos
+        if cantidad_puntos > 2000:
+
+            rango_dias = (df_filtrado["fecha"].max() - df_filtrado["fecha"].min()).days
+
+            if rango_dias <= 2:
+                frecuencia = "10min"
+            elif rango_dias <= 7:
+                frecuencia = "30min"
+            else:
+                frecuencia = "1h"
+
+            df_filtrado = (
+                df_filtrado
+                .set_index("fecha")
+                .resample(frecuencia)
+                .mean()
+                .reset_index()
+            )
 
         
 
